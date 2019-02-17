@@ -17,26 +17,9 @@ class ViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     
-    let imagePickerController = UIImagePickerController()
-    imagePickerController.delegate = self
-    
-    let actionSheet = UIAlertController(title: "Photo Source", message: "Choose a source", preferredStyle: .actionSheet)
-    actionSheet.addAction(UIAlertAction(title: "Camera", style: .default, handler: { (action:UIAlertAction) in
-      
-      if UIImagePickerController.isSourceTypeAvailable(.camera) {
-        imagePickerController.sourceType = .camera
-        self.present(imagePickerController, animated: true, completion: nil)
-      } else {
-        print("camera not available")
-      }
-      
-      }))
-      
-      actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-      
-      self.present(actionSheet, animated: true, completion: nil)
-
-      
+    if !UIImagePickerController.isSourceTypeAvailable(.camera) {
+      takePictureButton.setTitle("Select Photo", for: .normal)
+    }
   }
 
   override func viewDidDisappear(_ animated: Bool) {
@@ -93,31 +76,31 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
     progressView.isHidden = false
     activityIndicatorView.startAnimating()
     
-    upload(image: image, progressCompletion: { [weak self] percent in
+    upload(image: image, progressCompletion: { [unowned self] percent in
       
 ///////////////////////////////////////////////////////////////////////////////////////
 //  WHILE THE FILE UPLOADS, WE CALL THE PROGRESS HANDLER WITH AN UPDATED %
 ///////////////////////////////////////////////////////////////////////////////////////
       
-      self?.progressView.setProgress(percent, animated: true)},
-        completion: { [weak self] tags, colors in
+      self.progressView.setProgress(percent, animated: true)},
+        completion: { [unowned self] tags, colors in
           
 ///////////////////////////////////////////////////////////////////////////////////////
 //  COMPLETION HANDLER EXECUTRES WHEN THE UPLOAD FINISHES --> SETS THE CONTORLS BACK TO THEIR ORIGINAL STATE
 ///////////////////////////////////////////////////////////////////////////////////////
           
-          self?.takePictureButton.isHidden = false
-          self?.progressView.isHidden = true
-          self?.activityIndicatorView.stopAnimating()
+          self.takePictureButton.isHidden = false
+          self.progressView.isHidden = true
+          self.activityIndicatorView.stopAnimating()
           
-          self?.tags = tags
-          self?.colors = colors
+          self.tags = tags
+          self.colors = colors
           
 ///////////////////////////////////////////////////////////////////////////////////////
 //  ADVANCE TO RESULTS SCREEN WHEN THE UPLOAD COMPLETES, SUCCESSFULLY OR NOT
 ///////////////////////////////////////////////////////////////////////////////////////
           
-          self?.performSegue(withIdentifier: "ShowResults", sender: self)
+          self.performSegue(withIdentifier: "ShowResults", sender: self)
           
     })
     
@@ -154,8 +137,7 @@ extension ViewController {
                                fileName: "image.jpg",
                                mimeType: "image/jpeg")
     },
-                     to: "http://api.imagga.com/v1/content",
-                     headers: ["Authorization": "Basic YWNjXzhiN2FkZGU4Mjk0OTgxNDpjYjc1ZjBmNTI2NTVmNzVhNWI0YzFhMzQwODUxMGNiYQ=="],
+                     with: ImaggaRouter.content,
                      encodingCompletion: { encodingResult in
                       
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -200,27 +182,20 @@ extension ViewController {
 //  CALL THE COMPLETION HANDLER TO UPDATE THE UI
 ///////////////////////////////////////////////////////////////////////////////////////
                         
-                        
-                        completion(nil, nil)
-                        
                       case .failure(let encodingError):
                         print(encodingError)
                       }
                       
     })
-  
- 
     
     func downloadTags(contentID: String, completion: @escaping ([String]?) -> Void) {
       
 ///////////////////////////////////////////////////////////////////////////////////////
 //  PERFORM AN HTTP GET REQUEST AGAINST THE TAGGING ENDPOINT, SENDING THE URL PARAMETER WITH ID YOU RECEIVED AFTER YOUR UPLOADED
 ///////////////////////////////////////////////////////////////////////////////////////
-      
-      Alamofire.request("http://api.imagga.com/v1/tagging",
-                        parameters: ["content": contentID],
-                        headers: ["Authorization": "Basic YWNjXzhiN2FkZGU4Mjk0OTgxNDpjYjc1ZjBmNTI2NTVmNzVhNWI0YzFhMzQwODUxMGNiYQ=="])
-        
+      print("REQUESTING")
+      Alamofire.request(ImaggaRouter.tags(contentID))
+            
 ///////////////////////////////////////////////////////////////////////////////////////
 //  CHECK IF RESPONSE WAS SUCCESSFUL, IF IT HAS NO VALUE THEN PRINT THE ERROR AND CALL THE COMPLETION HANDLER
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -247,7 +222,6 @@ extension ViewController {
           
           completion(tags)
           
-          
       }
     }
     
@@ -257,9 +231,7 @@ extension ViewController {
 //  PERFORM AN HTTP GET REQUEST AGAINST THE COLORS ENDPOINT, SENDING THE URL PARAMETER CONTENT WITH THE ID
 ///////////////////////////////////////////////////////////////////////////////////////
       
-      Alamofire.request("http://api.imagga.com/v1/colors",
-                        parameters: ["content": contentID],
-                        headers: ["Authorization": "Basic YWNjXzhiN2FkZGU4Mjk0OTgxNDpjYjc1ZjBmNTI2NTVmNzVhNWI0YzFhMzQwODUxMGNiYQ=="])
+      Alamofire.request(ImaggaRouter.colors(contentID))
         .responseJSON { response in
 
 ///////////////////////////////////////////////////////////////////////////////////////
